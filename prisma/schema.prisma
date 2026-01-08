@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:root@localhost:3306/proyecto_titulacion?ssl-mode=REQUIRED"
+}
+
+enum Rol {
+  ESTUDIANTE
+  TUTOR
+  DIRECTOR
+  COORDINADOR
+  COMITE
+  DOCENTE_INTEGRACION
+}
+
+enum AreaInvestigacion {
+  INTELIGENCIA_ARTIFICIAL
+  CIBERSEGURIDAD
+  DESARROLLO_SOFTWARE
+  CONTROL_CALIDAD
+}
+
+enum EstadoPropuesta {
+  PENDIENTE
+  APROBADA
+  APROBADA_CON_COMENTARIOS
+  RECHAZADA
+}
+
+enum EstadoAvance {
+  ENTREGADO
+  NO_ENTREGADO
+}
+
+model Usuario {
+  id                 Int       @id @default(autoincrement())
+  nombres            String
+  apellidos          String
+  correoInstitucional String   @unique @map("correo_institucional")
+  clave              String
+  rol                Rol       @default(ESTUDIANTE)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relaciones
+  estudiante         Estudiante?
+  tutor              Tutor?
+  director           Director?
+  coordinador        Coordinador?
+  docente            Docente?
+  miembroComite      MiembroComite?
+
+  @@map("usuarios")
+}
+
+model Estudiante {
+  id                Int       @id @default(autoincrement())
+  usuarioId         Int       @unique @map("usuario_id")
+  usuario           Usuario   @relation(fields: [usuarioId], references: [id])
+  semestre          String?   // Ej. "Septimo", "Octavo"
+  
+  propuestas        Propuesta[]
+  prerequisitos     Prerequisito[]
+
+  @@map("estudiantes")
+}
+
+model Tutor {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  testigos  Avance[] // Avances que revisa
+
+  @@map("tutores")
+}
+
+model Director {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("directores")
+}
+
+model Coordinador {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("coordinadores")
+}
+
+model Docente {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  avances   Avance[] // Avances que califica
+
+  @@map("docentes")
+}
+
+model MiembroComite {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @unique @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  evaluaciones PropuestaEvaluacion[]
+
+  @@map("miembros_comite")
+}
+
+model Prerequisito {
+  id           Int        @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  cumplido     Boolean    @default(false)
+  archivoUrl   String?    @map("archivo_url") // Evidencia
+  estudianteId Int        @map("estudiante_id")
+  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+
+  @@map("prerequisitos")
+}
+
+model Propuesta {
+  id                Int               @id @default(autoincrement())
+  titulo            String
+  objetivos         String            @db.Text
+  problematica      String?           @db.Text
+  areaInvestigacion AreaInvestigacion @map("area_investigacion")
+  alcance           String?
+  archivoUrl        String?           @map("archivo_url")
+  fechaPublicacion  DateTime          @default(now()) @map("fecha_publicacion")
+  estado            EstadoPropuesta   @default(PENDIENTE)
+  
+  estudianteId      Int               @map("estudiante_id")
+  estudiante        Estudiante        @relation(fields: [estudianteId], references: [id])
+  
+  avances           Avance[]
+  evaluaciones      PropuestaEvaluacion[]
+
+  @@map("propuestas")
+}
+
+model PropuestaEvaluacion {
+  id              Int           @id @default(autoincrement())
+  propuestaId     Int           @map("propuesta_id")
+  propuesta       Propuesta     @relation(fields: [propuestaId], references: [id])
+  miembroComiteId Int           @map("miembro_comite_id")
+  miembroComite   MiembroComite @relation(fields: [miembroComiteId], references: [id])
+  comentarios     String?       @db.Text
+  aprobado        Boolean       @default(false)
+  fechaEvaluacion DateTime      @default(now()) @map("fecha_evaluacion")
+
+  @@map("propuesta_evaluaciones")
+}
+
+model Avance {
+  id             Int          @id @default(autoincrement())
+  semana         Int
+  contenido      String       @db.Text
+  archivoUrl     String?      @map("archivo_url")
+  fechaEntrega   DateTime     @default(now()) @map("fecha_entrega")
+  estado         EstadoAvance @default(ENTREGADO)
+  
+  calificacion   Decimal?     @db.Decimal(4, 2)
+  comentarios    String?      @db.Text
+  
+  propuestaId    Int          @map("propuesta_id")
+  propuesta      Propuesta    @relation(fields: [propuestaId], references: [id])
+  
+  tutorId        Int?         @map("tutor_id")
+  tutor          Tutor?       @relation(fields: [tutorId], references: [id])
+
+  docenteId      Int?         @map("docente_id")
+  docente        Docente?     @relation(fields: [docenteId], references: [id])
+
+  @@map("avances")
+}
